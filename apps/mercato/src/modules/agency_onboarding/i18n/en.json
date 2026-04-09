@@ -57,8 +57,9 @@
   "agency_onboarding.detail.section.pain_points": "Pain Points & Needs",
   "agency_onboarding.detail.section.triggers": "Buying Triggers",
   "agency_onboarding.detail.section.channels": "Recommended Channels",
-  "agency_onboarding.menu.label": "Onboarding AI",
-  "agency_onboarding.list.title": "Onboarding AI — Clients",
-  "agency_onboarding.list.description": "All agency client onboardings.",
-  "agency_onboarding.list.new": "Start new onboarding"
+  "agency_onboarding.menu.group": "Clients",
+  "agency_onboarding.menu.label": "Client Base",
+  "agency_onboarding.list.title": "Client Briefs",
+  "agency_onboarding.list.description": "All agency client briefs.",
+  "agency_onboarding.list.new": "New Onboarding"
 }

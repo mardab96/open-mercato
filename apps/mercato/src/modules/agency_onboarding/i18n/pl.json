@@ -57,8 +57,9 @@
   "agency_onboarding.detail.section.pain_points": "Bóle i Potrzeby",
   "agency_onboarding.detail.section.triggers": "Wyzwalacze Zakupowe",
   "agency_onboarding.detail.section.channels": "Rekomendowane Kanały",
-  "agency_onboarding.menu.label": "Onboarding AI",
-  "agency_onboarding.list.title": "Onboarding AI — Klienci",
-  "agency_onboarding.list.description": "Lista wszystkich onboardingów klientów agencji.",
-  "agency_onboarding.list.new": "Rozpocznij nowy onboarding"
+  "agency_onboarding.menu.group": "Klienci",
+  "agency_onboarding.menu.label": "Baza Klientów",
+  "agency_onboarding.list.title": "Lista Briefów",
+  "agency_onboarding.list.description": "Lista wszystkich briefów klientów agencji.",
+  "agency_onboarding.list.new": "Nowy Onboarding"
 }

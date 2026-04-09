@@ -9,9 +9,11 @@ const widget: InjectionMenuItemWidget = {
     {
       id: 'agency-onboarding-list',
       labelKey: 'agency_onboarding.menu.label',
-      label: 'Onboarding AI',
+      label: 'Baza Klientów',
       icon: 'Brain',
       href: '/backend/agency_onboarding/list',
+      groupLabelKey: 'agency_onboarding.menu.group',
+      groupLabel: 'Klienci',
       features: ['agency_onboarding.view'],
       placement: { position: InjectionPosition.Before, relativeTo: 'sign-out' },
     },
