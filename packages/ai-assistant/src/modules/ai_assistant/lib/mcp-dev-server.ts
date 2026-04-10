@@ -383,6 +383,21 @@ export async function runMcpDevServer(): Promise<void> {
       // Connect server to transport
       await mcpServer.connect(transport)
 
+      // Inject Accept header into rawHeaders (used by @hono/node-server to build the Web Request).
+      // Claude Code's MCP HTTP client doesn't send both required Accept types, causing 406.
+      const rawHeaders = req.rawHeaders
+      const acceptIdx = rawHeaders.findIndex((h, i) => i % 2 === 0 && h.toLowerCase() === 'accept')
+      const currentAccept = acceptIdx !== -1 ? rawHeaders[acceptIdx + 1] : ''
+      if (!currentAccept.includes('text/event-stream') || !currentAccept.includes('application/json')) {
+        if (acceptIdx === -1) {
+          req.rawHeaders = [...rawHeaders, 'Accept', 'application/json, text/event-stream']
+        } else {
+          const patched = [...rawHeaders]
+          patched[acceptIdx + 1] = 'application/json, text/event-stream'
+          req.rawHeaders = patched
+        }
+      }
+
       // Handle the request
       if (req.method === 'POST') {
         const body = await parseJsonBody(req)
