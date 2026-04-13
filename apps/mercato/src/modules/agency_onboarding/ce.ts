@@ -167,6 +167,57 @@ const aiAuditFields = [
   },
 ] satisfies CustomFieldDefinition[]
 
+const competitorDomainFields = [
+  {
+    key: 'client_profile_id',
+    kind: 'text',
+    label: 'Client Profile ID',
+    required: true,
+    indexed: true,
+    filterable: true,
+    formEditable: false,
+  },
+  {
+    key: 'url',
+    kind: 'text',
+    label: 'Competitor URL',
+    required: true,
+    indexed: true,
+    formEditable: true,
+  },
+  {
+    key: 'display_name',
+    kind: 'text',
+    label: 'Display Name',
+    formEditable: true,
+  },
+  {
+    key: 'status',
+    kind: 'select',
+    label: 'Status',
+    options: ['pending', 'scraping', 'done', 'failed'],
+    defaultValue: 'pending',
+    indexed: true,
+    filterable: true,
+    formEditable: false,
+  },
+  {
+    key: 'is_ai_suggested',
+    kind: 'text',
+    label: 'AI Suggested',
+    description: '"true" if suggested by AI audit, "false" if added manually',
+    formEditable: false,
+  },
+  {
+    key: 'audit_results',
+    kind: 'multiline',
+    label: 'Audit Results',
+    editor: 'markdown',
+    description: 'AI-generated competitor analysis',
+    formEditable: false,
+  },
+] satisfies CustomFieldDefinition[]
+
 export const entities: CustomEntitySpec[] = [
   {
     id: 'agency_onboarding:client_profile',
@@ -188,6 +239,13 @@ export const entities: CustomEntitySpec[] = [
     description: 'AI-generated audit: website, competitors, communication style, SWOT, strategy.',
     showInSidebar: true,
     fields: aiAuditFields,
+  },
+  {
+    id: 'agency_onboarding:competitor_domain',
+    label: 'Competitor Domain',
+    description: 'Competitor website tracked for multi-domain audit.',
+    showInSidebar: false,
+    fields: competitorDomainFields,
   },
 ]
 

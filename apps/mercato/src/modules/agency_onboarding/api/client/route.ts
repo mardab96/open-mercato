@@ -76,6 +76,7 @@ export async function GET(req: Request) {
         .where('organization_id', orgId)
         .where('tenant_id', auth.tenantId)
         .whereNull('deleted_at')
+        .whereRaw(`doc->>'client_profile_id' = ?`, [recordId])
         .orderBy('created_at', 'desc')
         .first('doc')
 

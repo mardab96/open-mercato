@@ -102,11 +102,39 @@ export default async function handler(payload: AuditPayload, ctx: { resolve: <T 
       console.warn('[ai-audit] Could not fetch attachments:', e)
     }
 
+    // 3b. Fetch existing interview data (target_audience) — use as authoritative context for AI
+    let interviewContext: string | undefined
+    let existingInterviewDoc: Record<string, unknown> | null = null
+    try {
+      const audienceRow = await knex('custom_entities_storage')
+        .where('entity_type', 'agency_onboarding:target_audience')
+        .where('organization_id', organizationId)
+        .where('tenant_id', tenantId)
+        .whereNull('deleted_at')
+        .orderBy('created_at', 'desc')
+        .first('doc')
+
+      if (audienceRow?.doc) {
+        existingInterviewDoc = typeof audienceRow.doc === 'string' ? JSON.parse(audienceRow.doc) : audienceRow.doc
+        const parts: string[] = []
+        if (existingInterviewDoc?.audience_summary) parts.push(`WYWIAD — PODSUMOWANIE:\n${existingInterviewDoc.audience_summary}`)
+        if (existingInterviewDoc?.personas) parts.push(`PERSONY:\n${existingInterviewDoc.personas}`)
+        if (existingInterviewDoc?.pain_points) parts.push(`PAIN POINTS:\n${existingInterviewDoc.pain_points}`)
+        if (existingInterviewDoc?.buying_triggers) parts.push(`TRIGERY ZAKUPOWE:\n${existingInterviewDoc.buying_triggers}`)
+        if (parts.length > 0) {
+          interviewContext = parts.join('\n\n')
+          console.log(`[ai-audit] Found interview data (${interviewContext.length} chars) — including in prompt`)
+        }
+      }
+    } catch (e) {
+      console.warn('[ai-audit] Could not fetch interview data:', e)
+    }
+
     // 4. STEP 2: AI analysis
     await updateStatus(knex, recordId, tenantId, 'ai_analyzing')
 
     console.log(`[ai-audit] Calling OpenAI for ${companyName}...`)
-    const result = await runAiAudit({ companyName, websiteUrl, scrapedContent, attachmentContents })
+    const result = await runAiAudit({ companyName, websiteUrl, scrapedContent, attachmentContents, interviewContext })
     console.log(`[ai-audit] Response: ${result.auditDocument.length} chars, ${result.auditDocument.split('\n').length} lines`)
 
     // 5. Save ai_audit record
@@ -130,22 +158,87 @@ export default async function handler(payload: AuditPayload, ctx: { resolve: <T 
     })
     console.log('[ai-audit] ai_audit record saved')
 
-    // 6. Save target_audience record
+    // 6. Save target_audience record — merge with existing interview data (don't overwrite)
+    const aiExtractedAudience = {
+      audience_summary: sectionA,
+      personas: extractSection(result.auditDocument, 'E'),
+      pain_points: extractSection(result.auditDocument, 'A'),
+      buying_triggers: extractSection(result.auditDocument, 'F'),
+      channels: result.channels,
+    }
+
+    // If interview data exists, preserve it (it's authoritative); fill gaps with AI extraction
+    const audienceValues = existingInterviewDoc
+      ? {
+          ...aiExtractedAudience,           // AI as base
+          ...Object.fromEntries(            // Interview data overwrites AI for non-empty fields
+            Object.entries(existingInterviewDoc).filter(([, v]) =>
+              v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)
+            )
+          ),
+          client_profile_id: recordId,      // Always set client_profile_id
+        }
+      : { ...aiExtractedAudience, client_profile_id: recordId }
+
     await de.createCustomEntityRecord({
       entityId: 'agency_onboarding:target_audience',
       organizationId,
       tenantId,
-      values: {
-        audience_summary: sectionA,
-        personas: extractSection(result.auditDocument, 'E'),
-        pain_points: extractSection(result.auditDocument, 'A'),
-        buying_triggers: extractSection(result.auditDocument, 'F'),
-        channels: result.channels,
-      },
+      values: audienceValues,
     })
-    console.log('[ai-audit] target_audience record saved')
+    console.log('[ai-audit] target_audience record saved (interview data preserved)')
 
-    // 7. Completed
+    // 7b. Auto-save AI-suggested competitors from sectionG
+    try {
+      const urlRegex = /https?:\/\/[^\s\])"',<]+/g
+      const competitorUrls = [...new Set((sectionG || '').match(urlRegex) || [])]
+        .filter((url) => {
+          try {
+            const host = new URL(url).hostname
+            return host && !host.includes('google') && !host.includes('facebook')
+              && !host.includes('linkedin') && host !== new URL(websiteUrl).hostname
+          } catch { return false }
+        })
+        .slice(0, 8)
+
+      for (const url of competitorUrls) {
+        // Check if already exists for this client
+        const existing = await knex('custom_entities_storage')
+          .where('entity_type', 'agency_onboarding:competitor_domain')
+          .where('tenant_id', tenantId)
+          .whereNull('deleted_at')
+          .whereRaw(`doc->>'client_profile_id' = ?`, [recordId])
+          .whereRaw(`doc->>'url' = ?`, [url])
+          .first('entity_id')
+
+        if (!existing) {
+          const { randomUUID } = await import('crypto')
+          await knex('custom_entities_storage').insert({
+            entity_type: 'agency_onboarding:competitor_domain',
+            entity_id: randomUUID(),
+            tenant_id: tenantId,
+            organization_id: organizationId,
+            doc: JSON.stringify({
+              client_profile_id: recordId,
+              url,
+              display_name: null,
+              status: 'pending',
+              is_ai_suggested: 'true',
+              audit_results: null,
+            }),
+            created_at: new Date(),
+            updated_at: new Date(),
+          })
+        }
+      }
+      if (competitorUrls.length > 0) {
+        console.log(`[ai-audit] Auto-saved ${competitorUrls.length} AI-suggested competitors`)
+      }
+    } catch (e) {
+      console.warn('[ai-audit] Could not auto-save competitors:', e)
+    }
+
+    // 8. Completed
     await updateStatus(knex, recordId, tenantId, 'completed')
 
     await emitOnboardingEvent('agency_onboarding.audit.completed', {

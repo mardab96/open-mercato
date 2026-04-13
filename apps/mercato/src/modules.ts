@@ -36,6 +36,7 @@ export const enabledModules: ModuleEntry[] = [
 
   // --- Agency modules ---
   { id: 'agency_onboarding', from: '@app' },
+  { id: 'agency_intelligence', from: '@app' },
 
   // --- Platform modules required by init/seeding ---
   { id: 'feature_toggles', from: '@open-mercato/core' },
