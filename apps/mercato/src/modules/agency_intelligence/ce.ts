@@ -142,6 +142,68 @@ const agentActionFields = [
   },
 ] satisfies CustomFieldDefinition[]
 
+const campaignPlanFields = [
+  {
+    key: 'client_profile_id',
+    kind: 'text',
+    label: 'Client Profile ID',
+    required: true,
+    indexed: true,
+    filterable: true,
+    formEditable: false,
+  },
+  {
+    key: 'status',
+    kind: 'select',
+    label: 'Status',
+    options: ['draft', 'generating', 'ready', 'failed'],
+    defaultValue: 'draft',
+    indexed: true,
+    filterable: true,
+    formEditable: false,
+  },
+  {
+    key: 'channel_breakdown',
+    kind: 'multiline',
+    label: 'Channel Breakdown & Budget',
+    editor: 'markdown',
+    description: 'Per-channel budget allocation and strategy',
+    formEditable: true,
+  },
+  {
+    key: 'creative_briefs',
+    kind: 'multiline',
+    label: 'Creative Briefs',
+    editor: 'markdown',
+    description: 'Creative direction per channel',
+    formEditable: true,
+  },
+  {
+    key: 'funnel_stages',
+    kind: 'multiline',
+    label: 'Funnel Stages',
+    editor: 'markdown',
+    description: 'Awareness → Consideration → Conversion stages',
+    formEditable: true,
+  },
+  {
+    key: 'kpis',
+    kind: 'multiline',
+    label: 'KPIs & Goals',
+    editor: 'markdown',
+    description: 'Key performance indicators and measurement plan',
+    formEditable: true,
+  },
+  {
+    key: 'generated_at',
+    kind: 'text',
+    label: 'Generated At',
+    description: 'ISO 8601 timestamp',
+    indexed: true,
+    formEditable: false,
+  },
+] satisfies CustomFieldDefinition[]
+
 export const entities: CustomEntitySpec[] = [
   {
     id: 'agency_intelligence:client_connection',
@@ -156,6 +218,13 @@ export const entities: CustomEntitySpec[] = [
     description: 'Log entry of an AI agent decision or action for a client.',
     showInSidebar: false,
     fields: agentActionFields,
+  },
+  {
+    id: 'agency_intelligence:campaign_plan',
+    label: 'Campaign Plan',
+    description: 'AI-generated performance marketing campaign plan for a client.',
+    showInSidebar: false,
+    fields: campaignPlanFields,
   },
 ]
 

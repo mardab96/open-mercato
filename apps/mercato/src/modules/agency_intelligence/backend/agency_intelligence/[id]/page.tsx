@@ -11,7 +11,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useParams } from 'next/navigation'
-import { Bot, Plug, Plus, CheckCircle2, XCircle, Clock, Loader2, SkipForward, Globe } from 'lucide-react'
+import Link from 'next/link'
+import { Bot, Plug, Plus, CheckCircle2, XCircle, Clock, Loader2, SkipForward, Globe, BarChart3, ThumbsUp, Play, Ban } from 'lucide-react'
 
 type ClientProfile = {
   id: string
@@ -190,6 +191,7 @@ export default function ClientIntelligenceDetailPage({ params }: { params?: { id
   const [connections, setConnections] = React.useState<Connection[]>([])
   const [actions, setActions] = React.useState<AgentAction[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [updatingAction, setUpdatingAction] = React.useState<string | null>(null)
 
   const fetchConnections = React.useCallback(async () => {
     if (!clientId) return
@@ -225,6 +227,33 @@ export default function ClientIntelligenceDetailPage({ params }: { params?: { id
     }
   }, [clientId, fetchConnections])
 
+  const updateActionStatus = React.useCallback(async (actionId: string, status: string, result?: string) => {
+    setUpdatingAction(actionId)
+    try {
+      const { ok } = await apiCall(`/api/agency_intelligence/actions/${actionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, result }),
+      })
+      if (ok) {
+        flash(t('agency_intelligence.action.updated', 'Status zaktualizowany.'), 'success')
+        await fetchData()
+      } else {
+        flash(t('agency_intelligence.action.update_error', 'Nie udało się zaktualizować statusu.'), 'error')
+      }
+    } catch {
+      flash(t('agency_intelligence.action.update_error', 'Nie udało się zaktualizować statusu.'), 'error')
+    } finally {
+      setUpdatingAction(null)
+    }
+  }, [fetchData, t])
+
+  const handleMockExecute = React.useCallback(async (actionId: string) => {
+    await updateActionStatus(actionId, 'executing')
+    setTimeout(async () => {
+      await updateActionStatus(actionId, 'done', '[Mock] Akcja wykonana pomyślnie. Zmiany zastosowane w systemie.')
+    }, 1500)
+  }, [updateActionStatus])
+
   React.useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) {
@@ -248,23 +277,42 @@ export default function ClientIntelligenceDetailPage({ params }: { params?: { id
       <PageBody>
         <div className="mx-auto max-w-5xl space-y-6">
           {/* Stats bar */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <Card>
               <CardContent className="py-4">
-                <p className="text-xs uppercase font-medium text-muted-foreground">Połączenia</p>
+                <p className="text-xs uppercase font-medium text-muted-foreground">
+                  {t('agency_intelligence.stats.connections', 'Połączenia')}
+                </p>
                 <p className="mt-1 text-2xl font-bold">{connections.length}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="py-4">
-                <p className="text-xs uppercase font-medium text-muted-foreground">Łącznie akcji</p>
+                <p className="text-xs uppercase font-medium text-muted-foreground">
+                  {t('agency_intelligence.stats.total_actions', 'Łącznie akcji')}
+                </p>
                 <p className="mt-1 text-2xl font-bold">{actions.length}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="py-4">
-                <p className="text-xs uppercase font-medium text-muted-foreground">Oczekuje</p>
+                <p className="text-xs uppercase font-medium text-muted-foreground">
+                  {t('agency_intelligence.stats.pending', 'Oczekuje')}
+                </p>
                 <p className="mt-1 text-2xl font-bold text-yellow-600">{pendingActions.length}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-4 flex flex-col justify-between h-full">
+                <p className="text-xs uppercase font-medium text-muted-foreground">
+                  {t('agency_intelligence.stats.campaign_plan', 'Plan kampanii')}
+                </p>
+                <Button type="button" variant="outline" size="sm" className="mt-2" asChild>
+                  <Link href={`/backend/agency_intelligence/campaign/${clientId}`}>
+                    <BarChart3 className="mr-1.5 size-3.5" />
+                    {t('agency_intelligence.campaign.open', 'Otwórz plan')}
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -334,8 +382,70 @@ export default function ClientIntelligenceDetailPage({ params }: { params?: { id
                             )}
                             {action.result && (
                               <div className="mt-2 rounded-md bg-muted/50 px-3 py-2">
-                                <p className="text-xs font-medium text-muted-foreground mb-1">Wynik:</p>
+                                <p className="text-xs font-medium text-muted-foreground mb-1">
+                                  {t('agency_intelligence.action.result_label', 'Wynik:')}
+                                </p>
                                 <p className="text-xs">{action.result}</p>
+                              </div>
+                            )}
+                            {action.status === 'proposed' && (
+                              <div className="flex items-center gap-2 pt-1">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={updatingAction === action.id}
+                                  onClick={() => updateActionStatus(action.id, 'approved')}
+                                  className="text-green-600 border-green-200 hover:bg-green-50"
+                                >
+                                  {updatingAction === action.id ? (
+                                    <Spinner className="mr-1.5 size-3" />
+                                  ) : (
+                                    <ThumbsUp className="mr-1.5 size-3" />
+                                  )}
+                                  {t('agency_intelligence.action.approve', 'Zatwierdź')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={updatingAction === action.id}
+                                  onClick={() => handleMockExecute(action.id)}
+                                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                >
+                                  <Play className="mr-1.5 size-3" />
+                                  {t('agency_intelligence.action.execute', 'Wykonaj')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={updatingAction === action.id}
+                                  onClick={() => updateActionStatus(action.id, 'skipped')}
+                                  className="text-muted-foreground"
+                                >
+                                  <Ban className="mr-1.5 size-3" />
+                                  {t('agency_intelligence.action.skip', 'Pomiń')}
+                                </Button>
+                              </div>
+                            )}
+                            {action.status === 'approved' && (
+                              <div className="flex items-center gap-2 pt-1">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={updatingAction === action.id}
+                                  onClick={() => handleMockExecute(action.id)}
+                                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                >
+                                  {updatingAction === action.id ? (
+                                    <Spinner className="mr-1.5 size-3" />
+                                  ) : (
+                                    <Play className="mr-1.5 size-3" />
+                                  )}
+                                  {t('agency_intelligence.action.execute', 'Wykonaj')}
+                                </Button>
                               </div>
                             )}
                           </div>

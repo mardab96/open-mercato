@@ -174,6 +174,8 @@ export type AuditInput = {
   websiteUrl: string
   scrapedContent: string
   attachmentContents: string[]
+  /** Structured data from the AI interview — takes priority over inferences */
+  interviewContext?: string
 }
 
 export type AuditResult = {
@@ -226,6 +228,11 @@ export async function runAiAudit(input: AuditInput): Promise<AuditResult> {
 
   sections.push(`KLIENT: ${input.companyName}`)
   sections.push(`STRONA WWW: ${input.websiteUrl}`)
+
+  if (input.interviewContext) {
+    sections.push(`\n--- DANE POTWIERDZONE PRZEZ KLIENTA (WYWIAD AI — TRAKTUJ JAKO AUTORYTATYWNE) ---\n${input.interviewContext}\n--- KONIEC DANYCH Z WYWIADU ---`)
+    sections.push('\nUWAGA: Dane z wywiadu powyżej są POTWIERDZONE przez klienta. Użyj ich DOSŁOWNIE w odpowiednich sekcjach audytu. Nie wymyślaj ani nie zastępuj tych danych własnymi szacunkami.')
+  }
 
   if (input.scrapedContent) {
     sections.push(`\n--- ZESKRAPOWANA TREŚĆ STRONY WWW ---\n${input.scrapedContent}`)
