@@ -5623,6 +5623,7 @@ __metadata:
     "@mikro-orm/core": "npm:^6.6.10"
     "@mikro-orm/migrations": "npm:^6.6.10"
     "@mikro-orm/postgresql": "npm:^6.6.10"
+    "@modelcontextprotocol/sdk": "npm:^1.26.0"
     "@open-mercato/ai-assistant": "workspace:*"
     "@open-mercato/cache": "workspace:*"
     "@open-mercato/checkout": "workspace:*"

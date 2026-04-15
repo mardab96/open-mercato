@@ -96,6 +96,12 @@ export async function GET(req: Request) {
 
     const items = rows.map((r: any) => {
       const doc = typeof r.doc === 'string' ? JSON.parse(r.doc) : r.doc
+      let parsedMetrics = null
+      if (doc.cached_metrics) {
+        try {
+          parsedMetrics = typeof doc.cached_metrics === 'string' ? JSON.parse(doc.cached_metrics) : doc.cached_metrics
+        } catch { /* ignore */ }
+      }
       return {
         id: r.entity_id,
         client_profile_id: doc.client_profile_id,
@@ -103,6 +109,12 @@ export async function GET(req: Request) {
         display_name: doc.display_name ?? null,
         status: doc.status ?? 'disconnected',
         last_synced_at: doc.last_synced_at ?? null,
+        account_name: doc.account_name ?? null,
+        account_currency: doc.account_currency ?? null,
+        verified_at: doc.verified_at ?? null,
+        error_message: doc.error_message ?? null,
+        campaigns_count: doc.campaigns_count != null ? Number(doc.campaigns_count) : null,
+        cached_metrics: parsedMetrics,
         created_at: r.created_at,
       }
     })
@@ -151,7 +163,7 @@ export async function POST(req: Request) {
         tool,
         external_id: encryptedExternalId,
         display_name: display_name ?? null,
-        status: 'connected',
+        status: ['meta_ads', 'google_ads'].includes(tool) ? 'disconnected' : 'connected',
         last_synced_at: null,
       }),
       created_at: now,

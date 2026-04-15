@@ -12,7 +12,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Bot, Plug, Plus, CheckCircle2, XCircle, Clock, Loader2, SkipForward, Globe, BarChart3, ThumbsUp, Play, Ban } from 'lucide-react'
+import { Bot, Plug, Plus, CheckCircle2, XCircle, Clock, Loader2, SkipForward, Globe, BarChart3, ThumbsUp, Play, Ban, RefreshCw, ShieldCheck, AlertTriangle } from 'lucide-react'
 
 type ClientProfile = {
   id: string
@@ -27,7 +27,25 @@ type Connection = {
   display_name: string | null
   status: string
   last_synced_at: string | null
+  account_name: string | null
+  account_currency: string | null
+  verified_at: string | null
+  error_message: string | null
+  campaigns_count: number | null
+  cached_metrics: {
+    spend_7d?: number
+    impressions_7d?: number
+    clicks_7d?: number
+    ctr_7d?: number
+    currency?: string
+  } | null
   created_at: string
+}
+
+const AD_PLATFORMS = ['meta_ads', 'google_ads']
+
+function isAdPlatform(tool: string): boolean {
+  return AD_PLATFORMS.includes(tool)
 }
 
 type AgentAction = {
@@ -51,10 +69,16 @@ const TOOL_LABELS: Record<string, string> = {
   email: 'Email',
 }
 
-const CONNECTION_STATUS_CONFIG: Record<string, { color: string; label: string }> = {
-  connected: { color: 'bg-green-500/15 text-green-600', label: 'Połączone' },
-  disconnected: { color: 'bg-muted text-muted-foreground', label: 'Rozłączone' },
-  error: { color: 'bg-red-500/15 text-red-600', label: 'Błąd' },
+const CONNECTION_STATUS_CONFIG: Record<string, { color: string; labelKey: string; labelFallback: string }> = {
+  connected: { color: 'bg-green-500/15 text-green-600', labelKey: 'agency_intelligence.connection.status.connected', labelFallback: 'Połączone' },
+  disconnected: { color: 'bg-muted text-muted-foreground', labelKey: 'agency_intelligence.connection.status.disconnected', labelFallback: 'Rozłączone' },
+  pending_verification: { color: 'bg-yellow-500/15 text-yellow-600', labelKey: 'agency_intelligence.connection.status.pending_verification', labelFallback: 'Wymaga weryfikacji' },
+  error: { color: 'bg-red-500/15 text-red-600', labelKey: 'agency_intelligence.connection.status.error', labelFallback: 'Błąd' },
+}
+
+function getConnectionStatus(conn: Connection): string {
+  if (conn.status === 'disconnected' && isAdPlatform(conn.tool)) return 'pending_verification'
+  return conn.status
 }
 
 const ACTION_STATUS_CONFIG: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
@@ -192,6 +216,8 @@ export default function ClientIntelligenceDetailPage({ params }: { params?: { id
   const [actions, setActions] = React.useState<AgentAction[]>([])
   const [loading, setLoading] = React.useState(true)
   const [updatingAction, setUpdatingAction] = React.useState<string | null>(null)
+  const [verifyingConnection, setVerifyingConnection] = React.useState<string | null>(null)
+  const [syncingConnection, setSyncingConnection] = React.useState<string | null>(null)
 
   const fetchConnections = React.useCallback(async () => {
     if (!clientId) return
@@ -253,6 +279,48 @@ export default function ClientIntelligenceDetailPage({ params }: { params?: { id
       await updateActionStatus(actionId, 'done', '[Mock] Akcja wykonana pomyślnie. Zmiany zastosowane w systemie.')
     }, 1500)
   }, [updateActionStatus])
+
+  const handleVerify = React.useCallback(async (connectionId: string) => {
+    setVerifyingConnection(connectionId)
+    try {
+      const { ok, result } = await apiCall('/api/agency_intelligence/connections/verify', {
+        method: 'POST',
+        body: JSON.stringify({ connection_id: connectionId }),
+      })
+      const data = result as any
+      if (ok && data?.verified) {
+        flash(t('agency_intelligence.connection.verify_success', `Konto zweryfikowane: ${data?.account_info?.name || ''}`), 'success')
+      } else {
+        flash(t('agency_intelligence.connection.verify_failed', `Weryfikacja nieudana: ${data?.error || 'Nieznany błąd'}`), 'error')
+      }
+      await fetchConnections()
+    } catch {
+      flash(t('agency_intelligence.connection.verify_error', 'Błąd podczas weryfikacji.'), 'error')
+    } finally {
+      setVerifyingConnection(null)
+    }
+  }, [fetchConnections, t])
+
+  const handleSync = React.useCallback(async (connectionId: string) => {
+    setSyncingConnection(connectionId)
+    try {
+      const { ok, result } = await apiCall('/api/agency_intelligence/connections/sync', {
+        method: 'POST',
+        body: JSON.stringify({ connection_id: connectionId }),
+      })
+      const data = result as any
+      if (ok && data?.synced) {
+        flash(t('agency_intelligence.connection.sync_success', `Zsynchronizowano ${data?.campaigns_count || 0} kampanii.`), 'success')
+      } else {
+        flash(t('agency_intelligence.connection.sync_failed', 'Synchronizacja nieudana.'), 'error')
+      }
+      await fetchConnections()
+    } catch {
+      flash(t('agency_intelligence.connection.sync_error', 'Błąd podczas synchronizacji.'), 'error')
+    } finally {
+      setSyncingConnection(null)
+    }
+  }, [fetchConnections, t])
 
   React.useEffect(() => { fetchData() }, [fetchData])
 
@@ -468,32 +536,136 @@ export default function ClientIntelligenceDetailPage({ params }: { params?: { id
                 <Card>
                   <CardContent className="py-10 text-center">
                     <Plug className="mx-auto mb-3 size-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Brak połączeń. Dodaj pierwsze narzędzie powyżej.</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t('agency_intelligence.connection.empty', 'Brak połączeń. Dodaj pierwsze narzędzie powyżej.')}
+                    </p>
                   </CardContent>
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {connections.map((conn) => {
-                    const statusCfg = CONNECTION_STATUS_CONFIG[conn.status] || CONNECTION_STATUS_CONFIG.disconnected
+                    const effectiveStatus = getConnectionStatus(conn)
+                    const statusCfg = CONNECTION_STATUS_CONFIG[effectiveStatus] || CONNECTION_STATUS_CONFIG.disconnected
+                    const isVerifying = verifyingConnection === conn.id
+                    const isSyncing = syncingConnection === conn.id
+
                     return (
                       <Card key={conn.id}>
                         <CardContent className="py-4">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0 space-y-1.5">
                               <div className="flex items-center gap-2">
-                                <Globe className="size-3.5 text-muted-foreground" />
-                                <p className="text-sm font-medium">
-                                  {conn.display_name || TOOL_LABELS[conn.tool] || conn.tool}
+                                <Globe className="size-3.5 text-muted-foreground shrink-0" />
+                                <p className="text-sm font-medium truncate">
+                                  {conn.account_name || conn.display_name || TOOL_LABELS[conn.tool] || conn.tool}
                                 </p>
                               </div>
                               <p className="text-xs text-muted-foreground">{TOOL_LABELS[conn.tool] || conn.tool}</p>
+
+                              {/* Metrics row */}
+                              {conn.cached_metrics && (
+                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+                                  <span className="text-xs text-muted-foreground">
+                                    {t('agency_intelligence.connection.spend_7d', 'Wydatki 7d')}:{' '}
+                                    <span className="font-medium text-foreground">
+                                      {conn.cached_metrics.spend_7d} {conn.cached_metrics.currency}
+                                    </span>
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {t('agency_intelligence.connection.clicks', 'Kliknięcia')}:{' '}
+                                    <span className="font-medium text-foreground">{conn.cached_metrics.clicks_7d}</span>
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    CTR:{' '}
+                                    <span className="font-medium text-foreground">{conn.cached_metrics.ctr_7d}%</span>
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Campaign count */}
+                              {conn.campaigns_count != null && (
+                                <p className="text-xs text-muted-foreground">
+                                  {t('agency_intelligence.connection.campaigns', 'Kampanie')}: {conn.campaigns_count}
+                                </p>
+                              )}
+
+                              {/* Error message */}
+                              {effectiveStatus === 'error' && conn.error_message && (
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <AlertTriangle className="size-3 text-red-500 shrink-0" />
+                                  <p className="text-xs text-red-500 truncate">{conn.error_message}</p>
+                                </div>
+                              )}
+
+                              {/* Last sync */}
                               {conn.last_synced_at && (
                                 <p className="text-xs text-muted-foreground">
-                                  Ostatnia synchronizacja: {formatDate(conn.last_synced_at)}
+                                  {t('agency_intelligence.connection.last_sync', 'Ostatnia synchronizacja')}: {formatDate(conn.last_synced_at)}
                                 </p>
                               )}
                             </div>
-                            <Badge className={statusCfg.color}>{statusCfg.label}</Badge>
+
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                              <Badge className={statusCfg.color}>
+                                {t(statusCfg.labelKey, statusCfg.labelFallback)}
+                              </Badge>
+
+                              {/* Verify button for unverified ad connections */}
+                              {effectiveStatus === 'pending_verification' && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isVerifying}
+                                  onClick={() => handleVerify(conn.id)}
+                                  className="text-yellow-600 border-yellow-200 hover:bg-yellow-50"
+                                >
+                                  {isVerifying ? (
+                                    <Spinner className="mr-1.5 size-3" />
+                                  ) : (
+                                    <ShieldCheck className="mr-1.5 size-3" />
+                                  )}
+                                  {t('agency_intelligence.connection.verify', 'Weryfikuj')}
+                                </Button>
+                              )}
+
+                              {/* Retry verify for error state on ad platforms */}
+                              {effectiveStatus === 'error' && isAdPlatform(conn.tool) && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isVerifying}
+                                  onClick={() => handleVerify(conn.id)}
+                                  className="text-red-600 border-red-200 hover:bg-red-50"
+                                >
+                                  {isVerifying ? (
+                                    <Spinner className="mr-1.5 size-3" />
+                                  ) : (
+                                    <RefreshCw className="mr-1.5 size-3" />
+                                  )}
+                                  {t('agency_intelligence.connection.retry', 'Ponów')}
+                                </Button>
+                              )}
+
+                              {/* Sync button for verified ad connections */}
+                              {effectiveStatus === 'connected' && isAdPlatform(conn.tool) && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isSyncing}
+                                  onClick={() => handleSync(conn.id)}
+                                >
+                                  {isSyncing ? (
+                                    <Spinner className="mr-1.5 size-3" />
+                                  ) : (
+                                    <RefreshCw className="mr-1.5 size-3" />
+                                  )}
+                                  {t('agency_intelligence.connection.sync', 'Synchronizuj')}
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>

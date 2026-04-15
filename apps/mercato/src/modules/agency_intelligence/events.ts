@@ -19,6 +19,24 @@ const events = [
     entity: 'agent_action',
     category: 'lifecycle',
   },
+  {
+    id: 'agency_intelligence.connection.verified',
+    label: 'Connection Verified',
+    entity: 'client_connection',
+    category: 'lifecycle',
+  },
+  {
+    id: 'agency_intelligence.connection.verification_failed',
+    label: 'Connection Verification Failed',
+    entity: 'client_connection',
+    category: 'lifecycle',
+  },
+  {
+    id: 'agency_intelligence.connection.synced',
+    label: 'Connection Synced',
+    entity: 'client_connection',
+    category: 'lifecycle',
+  },
 ] as const
 
 export const eventsConfig = createModuleEvents({

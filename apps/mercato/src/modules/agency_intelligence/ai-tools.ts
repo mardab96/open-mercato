@@ -36,7 +36,8 @@ const getClientContextTool: AiToolDefinition = {
   description: `Fetch full context for an agency client: profile, AI audit, target audience, and connected tools.
 Use this before creating agent actions to understand the client's strategy and goals.
 
-Returns: company_name, website_url, onboarding_status, audit (recommended_strategy, swot, competitor_analysis), audience (channels, personas, pain_points), connections (tool, status, display_name).`,
+Returns: company_name, website_url, onboarding_status, audit (recommended_strategy, swot, competitor_analysis), audience (channels, personas, pain_points), connections (tool, status, display_name, account_name, campaigns_count, cached_metrics, last_synced_at).
+Connections may include real metrics from verified ad accounts (spend, impressions, clicks, CTR for last 7 days).`,
   inputSchema: z.object({
     client_profile_id: z.string().uuid().describe('The client_profile entity ID'),
   }),
@@ -85,11 +86,21 @@ Returns: company_name, website_url, onboarding_status, audit (recommended_strate
     const audience = audienceRow ? (typeof audienceRow.doc === 'string' ? JSON.parse(audienceRow.doc) : audienceRow.doc) : null
     const connections = connectionRows.map((r: any) => {
       const doc = typeof r.doc === 'string' ? JSON.parse(r.doc) : r.doc
+      let parsedMetrics = null
+      if (doc.cached_metrics) {
+        try {
+          parsedMetrics = typeof doc.cached_metrics === 'string' ? JSON.parse(doc.cached_metrics) : doc.cached_metrics
+        } catch { /* ignore */ }
+      }
       return {
         id: r.entity_id,
         tool: doc.tool,
         display_name: doc.display_name,
         status: doc.status,
+        account_name: doc.account_name ?? null,
+        campaigns_count: doc.campaigns_count != null ? Number(doc.campaigns_count) : null,
+        cached_metrics: parsedMetrics,
+        last_synced_at: doc.last_synced_at ?? null,
       }
     })
 

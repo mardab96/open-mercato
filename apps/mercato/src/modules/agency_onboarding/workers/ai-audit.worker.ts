@@ -72,7 +72,7 @@ export default async function handler(job: { payload: AiAuditJob }, ctx: WorkerC
 
     // 3. Call OpenAI
     console.log(`[ai-audit] Calling OpenAI for ${companyName} (${websiteUrl})...`)
-    const result = await runAiAudit({ companyName, websiteUrl, attachmentContents })
+    const result = await runAiAudit({ companyName, websiteUrl, scrapedContent: '', attachmentContents }) as any
     console.log('[ai-audit] OpenAI response received')
 
     // 4. Save ai_audit record

@@ -22,11 +22,13 @@ const bodySchema = z.object({
 const responseSchema = z.object({ ok: z.literal(true) })
 
 export const openApi: OpenApiRouteDoc = {
-  POST: {
-    tags: ['Agency Onboarding'],
-    summary: 'Save edited audit document',
-    requestBody: { schema: bodySchema },
-    responses: { 200: { schema: responseSchema, description: 'Saved' } },
+  methods: {
+    POST: {
+      tags: ['Agency Onboarding'],
+      summary: 'Save edited audit document',
+      requestBody: { schema: bodySchema },
+      responses: [{ status: 200, description: 'Saved' }],
+    },
   },
 }
 
