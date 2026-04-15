@@ -17,14 +17,16 @@ const triggerResponseSchema = z.object({ ok: z.literal(true) })
 const errorResponseSchema = z.object({ error: z.string() })
 
 export const openApi: OpenApiRouteDoc = {
-  POST: {
-    tags: ['Agency Onboarding'],
-    summary: 'Trigger AI audit for a client profile',
-    requestBody: { schema: bodySchema },
-    responses: {
-      200: { schema: triggerResponseSchema, description: 'Audit triggered' },
-      400: { schema: errorResponseSchema, description: 'Validation error' },
-      401: { schema: errorResponseSchema, description: 'Unauthorized' },
+  methods: {
+    POST: {
+      tags: ['Agency Onboarding'],
+      summary: 'Trigger AI audit for a client profile',
+      requestBody: { schema: bodySchema },
+      responses: [
+        { status: 200, description: 'Audit triggered' },
+        { status: 400, description: 'Validation error' },
+        { status: 401, description: 'Unauthorized' },
+      ],
     },
   },
 }

@@ -52,6 +52,55 @@ const clientConnectionFields = [
     indexed: true,
     formEditable: false,
   },
+  {
+    key: 'account_name',
+    kind: 'text',
+    label: 'Account Name',
+    description: 'Verified account name from the ad platform',
+    formEditable: false,
+  },
+  {
+    key: 'account_currency',
+    kind: 'text',
+    label: 'Account Currency',
+    description: 'Account currency code (e.g., PLN, USD)',
+    formEditable: false,
+  },
+  {
+    key: 'verified_at',
+    kind: 'text',
+    label: 'Verified At',
+    description: 'ISO 8601 timestamp of last successful verification',
+    formEditable: false,
+  },
+  {
+    key: 'error_message',
+    kind: 'text',
+    label: 'Error Message',
+    description: 'Last error message from verification or sync',
+    formEditable: false,
+  },
+  {
+    key: 'cached_campaigns',
+    kind: 'multiline',
+    label: 'Cached Campaigns',
+    description: 'JSON array of campaign summaries from last sync',
+    formEditable: false,
+  },
+  {
+    key: 'cached_metrics',
+    kind: 'multiline',
+    label: 'Cached Metrics',
+    description: 'JSON object with recent performance metrics from last sync',
+    formEditable: false,
+  },
+  {
+    key: 'campaigns_count',
+    kind: 'text',
+    label: 'Campaigns Count',
+    description: 'Number of campaigns in the account',
+    formEditable: false,
+  },
 ] satisfies CustomFieldDefinition[]
 
 const agentActionFields = [

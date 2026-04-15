@@ -20,10 +20,12 @@ const responseSchema = z.object({
 })
 
 export const openApi: OpenApiRouteDoc = {
-  GET: {
-    tags: ['Agency Onboarding'],
-    summary: 'List all client profiles',
-    responses: { 200: { schema: responseSchema, description: 'Client list' } },
+  methods: {
+    GET: {
+      tags: ['Agency Onboarding'],
+      summary: 'List all client profiles',
+      responses: [{ status: 200, description: 'Client list' }],
+    },
   },
 }
 
